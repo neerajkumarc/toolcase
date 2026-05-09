@@ -125,6 +125,3 @@ Contributions are welcome! Please:
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-<div align="center">
-  <sub>Built with ❤️ by <a href="https://github.com/neerajkumarc">Neeraj Kumar</a></sub>
-</div>

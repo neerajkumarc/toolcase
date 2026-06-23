@@ -127,7 +127,7 @@ class AddToolWindowManager {
     static let shared = AddToolWindowManager()
     private var window: NSWindow?
     
-    func show(manager: DynamicToolManager) {
+    func show(manager: DynamicToolManager, editingTool: DynamicTool? = nil) {
         if window == nil {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 500, height: 650),
@@ -144,7 +144,7 @@ class AddToolWindowManager {
             self.window = window
         }
         
-        let view = NSHostingView(rootView: AddToolView(manager: manager, onDismiss: { [weak self] in
+        let view = NSHostingView(rootView: AddToolView(manager: manager, editingTool: editingTool, onDismiss: { [weak self] in
             self?.window?.orderOut(nil)
         }))
         window?.contentView = view
@@ -160,11 +160,34 @@ class AddToolWindowManager {
 // MARK: - Add Tool View (standalone, no sheet)
 struct AddToolView: View {
     @ObservedObject var manager: DynamicToolManager
+    var editingTool: DynamicTool? = nil
     var onDismiss: () -> Void
     
-    @State private var name = ""
-    @State private var icon = "bolt.fill"
-    @State private var code = """
+    @State private var name: String
+    @State private var icon: String
+    @State private var code: String
+    @State private var iconSearch = ""
+    @State private var emojiSearch = ""
+    @State private var showIconPicker = false
+    @State private var shortcutKey: String
+    @State private var iconMode: IconMode
+    @State private var isPromptCopied = false
+    
+    init(manager: DynamicToolManager, editingTool: DynamicTool? = nil, onDismiss: @escaping () -> Void) {
+        self.manager = manager
+        self.editingTool = editingTool
+        self.onDismiss = onDismiss
+        
+        if let editingTool = editingTool {
+            _name = State(initialValue: editingTool.name)
+            _icon = State(initialValue: editingTool.icon)
+            _code = State(initialValue: editingTool.code)
+            _shortcutKey = State(initialValue: editingTool.shortcutKey)
+            _iconMode = State(initialValue: editingTool.icon.isEmoji ? .emoji : .sfSymbol)
+        } else {
+            _name = State(initialValue: "")
+            _icon = State(initialValue: "bolt.fill")
+            _code = State(initialValue: """
 // Write your Swift code here.
 // It runs as a standalone script via /usr/bin/swift.
 //
@@ -173,12 +196,11 @@ struct AddToolView: View {
 // Example: Open a website
 import Cocoa
 NSWorkspace.shared.open(URL(string: "https://google.com")!)
-"""
-    @State private var iconSearch = ""
-    @State private var emojiSearch = ""
-    @State private var showIconPicker = false
-    @State private var shortcutKey = ""
-    @State private var iconMode: IconMode = .sfSymbol
+""")
+            _shortcutKey = State(initialValue: "")
+            _iconMode = State(initialValue: .sfSymbol)
+        }
+    }
     
     private var filteredIcons: [(name: String, category: String)] {
         SFSymbolLibrary.search(iconSearch)
@@ -192,10 +214,10 @@ NSWorkspace.shared.open(URL(string: "https://google.com")!)
         VStack(spacing: 0) {
             // Header
             HStack {
-                Image(systemName: "plus.rectangle.fill")
+                Image(systemName: editingTool != nil ? "pencil" : "plus.rectangle.fill")
                     .foregroundColor(.accentColor)
                     .font(.system(size: 16))
-                Text("Add New Tool")
+                Text(editingTool != nil ? "Edit Tool" : "Add New Tool")
                     .font(.system(size: 16, weight: .bold))
                 Spacer()
                 Button(action: onDismiss) {
@@ -381,7 +403,7 @@ NSWorkspace.shared.open(URL(string: "https://google.com")!)
                                             .font(.system(size: 10, weight: .medium))
                                     }
                                     .foregroundColor(.orange)
-                                } else if !manager.isKeyAvailable(shortcutKey) {
+                                } else if !manager.isKeyAvailable(shortcutKey, excluding: editingTool?.id) {
                                     HStack(spacing: 4) {
                                         Image(systemName: "exclamationmark.triangle.fill")
                                             .font(.system(size: 10))
@@ -446,17 +468,25 @@ Return ONLY the Swift code, no explanation.
 """
                                 NSPasteboard.general.clearContents()
                                 NSPasteboard.general.setString(template, forType: .string)
+                                withAnimation {
+                                    isPromptCopied = true
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                    withAnimation {
+                                        isPromptCopied = false
+                                    }
+                                }
                             }) {
                                 HStack(spacing: 4) {
-                                    Image(systemName: "doc.on.doc")
+                                    Image(systemName: isPromptCopied ? "checkmark" : "doc.on.doc")
                                         .font(.system(size: 9))
-                                    Text("Copy LLM Prompt")
+                                    Text(isPromptCopied ? "Copied!" : "Copy LLM Prompt")
                                         .font(.system(size: 9, weight: .semibold))
                                 }
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Color.orange.opacity(0.12))
-                                .foregroundColor(.orange)
+                                .background(isPromptCopied ? Color.green.opacity(0.12) : Color.orange.opacity(0.12))
+                                .foregroundColor(isPromptCopied ? .green : .orange)
                                 .cornerRadius(4)
                             }
                             .buttonStyle(.plain)
@@ -510,14 +540,18 @@ Return ONLY the Swift code, no explanation.
                 
                 Button(action: {
                     if !name.isEmpty {
-                        manager.addTool(name: name, icon: icon, code: code, shortcutKey: shortcutKey)
+                        if let editingTool = editingTool {
+                            manager.updateTool(id: editingTool.id, name: name, icon: icon, code: code, shortcutKey: shortcutKey)
+                        } else {
+                            manager.addTool(name: name, icon: icon, code: code, shortcutKey: shortcutKey)
+                        }
                         onDismiss()
                     }
                 }) {
                     HStack(spacing: 6) {
-                        Image(systemName: "plus.circle.fill")
+                        Image(systemName: editingTool != nil ? "checkmark.circle.fill" : "plus.circle.fill")
                             .font(.system(size: 12))
-                        Text("Add Tool")
+                        Text(editingTool != nil ? "Save Changes" : "Add Tool")
                             .font(.system(size: 13, weight: .bold))
                     }
                     .foregroundColor(.white)

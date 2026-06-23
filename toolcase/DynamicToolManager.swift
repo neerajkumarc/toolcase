@@ -65,16 +65,28 @@ class DynamicToolManager: ObservableObject {
         if !tool.shortcutKey.isEmpty { registerHotkey(for: tool) }
     }
     
+    func updateTool(id: UUID, name: String, icon: String, code: String, shortcutKey: String) {
+        if let index = tools.firstIndex(where: { $0.id == id }) {
+            unregisterHotkey(for: tools[index])
+            tools[index].name = name
+            tools[index].icon = icon
+            tools[index].code = code
+            tools[index].shortcutKey = shortcutKey.uppercased()
+            saveTools()
+            if !tools[index].shortcutKey.isEmpty { registerHotkey(for: tools[index]) }
+        }
+    }
+    
     func deleteTool(at offsets: IndexSet) {
         for i in offsets { unregisterHotkey(for: tools[i]) }
         tools.remove(atOffsets: offsets)
         saveTools()
     }
     
-    func isKeyAvailable(_ key: String) -> Bool {
+    func isKeyAvailable(_ key: String, excluding toolId: UUID? = nil) -> Bool {
         let k = key.uppercased()
         if Self.reservedKeys.contains(k) { return false }
-        return !tools.contains(where: { $0.shortcutKey == k })
+        return !tools.contains(where: { $0.shortcutKey == k && $0.id != toolId })
     }
     
     func run(tool: DynamicTool) {

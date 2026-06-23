@@ -11,6 +11,7 @@ import Combine
 /// The main menu bar panel — displays standard tools, user-created tools, and settings.
 struct ContentView: View {
     @State private var searchText = ""
+    @State private var toolToDelete: DynamicTool? = nil
     @ObservedObject private var dynamicManager = DynamicToolManager.shared
     
     private var filteredFeatures: [FeatureEntry] {
@@ -107,23 +108,100 @@ struct ContentView: View {
                         
                         VStack(spacing: 2) {
                             ForEach(filteredDynamicTools) { tool in
-                                MenuItemView(
-                                    title: tool.name,
-                                    icon: tool.icon,
-                                    iconColor: .accentColor,
-                                    shortcutText: tool.shortcutKey.isEmpty ? nil : "⌃⌥\(tool.shortcutKey)",
-                                    action: { dynamicManager.run(tool: tool) }
-                                ) {
-                                    Button(action: {
-                                        if let index = dynamicManager.tools.firstIndex(where: { $0.id == tool.id }) {
-                                            dynamicManager.deleteTool(at: IndexSet(integer: index))
+                                if toolToDelete?.id == tool.id {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "exclamationmark.triangle.fill")
+                                            .foregroundColor(.orange)
+                                            .font(.system(size: 12))
+                                        
+                                        Text("Delete \(tool.name)?")
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(.primary)
+                                            .lineLimit(1)
+                                        
+                                        Spacer()
+                                        
+                                        Button(action: {
+                                            withAnimation {
+                                                toolToDelete = nil
+                                            }
+                                        }) {
+                                            Text("Cancel")
+                                                .font(.system(size: 11, weight: .medium))
+                                                .foregroundColor(.secondary)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 3)
+                                                .background(Color.primary.opacity(0.06))
+                                                .cornerRadius(4)
                                         }
-                                    }) {
-                                        Image(systemName: "trash")
-                                            .font(.system(size: 10))
-                                            .foregroundColor(.secondary.opacity(0.4))
+                                        .buttonStyle(.plain)
+                                        
+                                        Button(action: {
+                                            withAnimation {
+                                                if let index = dynamicManager.tools.firstIndex(where: { $0.id == tool.id }) {
+                                                    dynamicManager.deleteTool(at: IndexSet(integer: index))
+                                                }
+                                                toolToDelete = nil
+                                            }
+                                        }) {
+                                            Text("Delete")
+                                                .font(.system(size: 11, weight: .bold))
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 3)
+                                                .background(Color.red)
+                                                .cornerRadius(4)
+                                        }
+                                        .buttonStyle(.plain)
                                     }
-                                    .buttonStyle(.plain)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(Color.red.opacity(0.08))
+                                    )
+                                    .transition(.opacity)
+                                } else {
+                                    MenuItemView(
+                                        title: tool.name,
+                                        icon: tool.icon,
+                                        iconColor: .accentColor,
+                                        shortcutText: tool.shortcutKey.isEmpty ? nil : "⌃⌥\(tool.shortcutKey)",
+                                        action: { dynamicManager.run(tool: tool) }
+                                    ) {
+                                        HStack(spacing: 8) {
+                                            Button(action: {
+                                                AddToolWindowManager.shared.show(manager: dynamicManager, editingTool: tool)
+                                            }) {
+                                                Image(systemName: "pencil")
+                                                    .font(.system(size: 11, weight: .semibold))
+                                                    .foregroundColor(.accentColor)
+                                                    .frame(width: 24, height: 24)
+                                                    .background(
+                                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                                            .fill(Color.accentColor.opacity(0.12))
+                                                    )
+                                            }
+                                            .buttonStyle(.plain)
+                                            
+                                            Button(action: {
+                                                withAnimation {
+                                                    toolToDelete = tool
+                                                }
+                                            }) {
+                                                Image(systemName: "trash")
+                                                    .font(.system(size: 11, weight: .semibold))
+                                                    .foregroundColor(.red)
+                                                    .frame(width: 24, height: 24)
+                                                    .background(
+                                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                                            .fill(Color.red.opacity(0.12))
+                                                    )
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                    .transition(.opacity)
                                 }
                             }
                         }

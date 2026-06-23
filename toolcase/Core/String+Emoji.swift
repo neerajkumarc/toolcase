@@ -8,14 +8,18 @@
 import Foundation
 
 extension String {
-    /// Returns `true` if the string is a single emoji character (or emoji sequence).
+    /// Returns `true` if the string contains an emoji or custom character.
     /// Used to distinguish emoji icons from SF Symbol names in tool configuration.
     var isEmoji: Bool {
         guard !isEmpty else { return false }
-        // SF Symbol names are always pure ASCII (e.g. "bolt.fill", "mic.slash.fill")
-        // Emojis contain non-ASCII unicode scalars with emoji properties
-        return unicodeScalars.allSatisfy { scalar in
-            scalar.properties.isEmoji && scalar.value > 0x23 // exclude ASCII symbols like #
+        // SF Symbol names consist only of standard ASCII characters (e.g. "bolt.fill", "mic.slash.fill").
+        // Emojis and custom characters contain non-ASCII scalars or emoji properties.
+        return unicodeScalars.contains { scalar in
+            let val = scalar.value
+            if val > 127 {
+                return true
+            }
+            return scalar.properties.isEmoji && val > 0x39 // Exclude ASCII digits 0-9
         }
     }
 }

@@ -11,6 +11,7 @@ DerivedData/
 
 ## App Packaging
 *.ipa
+*.dmg
 *.dSYM.zip
 *.dSYM
 
